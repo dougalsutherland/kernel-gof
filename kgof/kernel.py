@@ -547,6 +547,8 @@ class KPoly(DifferentiableKernel, KSTKernel):
         self.degree = degree
         self.gamma = gamma
         self.coef0 = coef0
+        assert not np.allclose(self.degree, 2)
+        assert not np.allclose(self.degree, 1)
 
     def eval(self, X, Y):
         """
@@ -587,7 +589,7 @@ class KPoly(DifferentiableKernel, KSTKernel):
         gamma = 1/X.shape[1] if self.gamma is None else self.gamma
         dot = np.dot(X, Y.T)
         return (self.degree * (gamma * dot + self.coef0) ** (self.degree - 1)
-                * gamma * Y[np.newaxis, [dim]])
+                * gamma * Y[np.newaxis, :, dim])
 
     def gradY_X(self, X, Y, dim):
         """
@@ -601,7 +603,7 @@ class KPoly(DifferentiableKernel, KSTKernel):
         gamma = 1/X.shape[1] if self.gamma is None else self.gamma
         dot = np.dot(X, Y.T)
         return (self.degree * (gamma * dot + self.coef0) ** (self.degree - 1)
-                * gamma * X[np.newaxis, [dim]])
+                * gamma * X[:, dim, np.newaxis])
 
     def gradXY_sum(self, X, Y):
         r"""
@@ -615,8 +617,13 @@ class KPoly(DifferentiableKernel, KSTKernel):
         """
         gamma = 1/X.shape[1] if self.gamma is None else self.gamma
         dot = np.dot(X, Y.T)
-        return (self.degree * (gamma * dot + self.coef0) ** (self.degree - 1)
-                * gamma * X.shape[1])
+        inside = gamma * dot + self.coef0
+        to_dminus2 = inside ** (self.degree - 2)
+        to_dminus1 = to_dminus2 * inside
+        return (
+            (self.degree * (self.degree-1) * gamma**2) * to_dminus2 * dot
+            + (X.shape[1] * gamma * self.degree) * to_dminus1
+        )
 
 
 class KMixture(KSTKernel, LinearKSTKernel, DifferentiableKernel):
